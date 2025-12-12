@@ -70,10 +70,12 @@ def run_credit_rating_monitor():
 def run_api():
     """Run Flask API"""
     try:
-        logger.info("Starting Flask API on port 5000...")
+        import os
+        port = int(os.environ.get('PORT', 5000))
+        logger.info(f"Starting Flask API on port {port}...")
         # Wait a bit for monitors to create initial data
-        time.sleep(10)
-        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+        time.sleep(5)
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
     except Exception as e:
         logger.error(f"API error: {e}")
 

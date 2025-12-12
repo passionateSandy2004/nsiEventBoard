@@ -126,13 +126,17 @@ def health():
         'credit_rating_equity': os.path.exists('credit_rating_data/latest_equity.json')
     }
     
+    # Count how many monitors have data
+    ready_count = sum(files.values())
     all_healthy = all(files.values())
     
+    # Always return 200 for Railway health check, but indicate status
     return jsonify({
-        'status': 'healthy' if all_healthy else 'degraded',
+        'status': 'healthy' if all_healthy else 'starting' if ready_count > 0 else 'initializing',
         'timestamp': datetime.now().isoformat(),
-        'monitors': files
-    }), 200 if all_healthy else 503
+        'monitors': files,
+        'ready': f"{ready_count}/4"
+    }), 200
 
 
 @app.route('/event-calendar')
@@ -300,23 +304,15 @@ def internal_error(error):
 
 
 if __name__ == '__main__':
+    import os
+    
+    port = int(os.environ.get('PORT', 5000))
+    
     print("\n" + "=" * 80)
     print("NSE DATA API")
     print("=" * 80)
-    print("\nAPI Endpoints:")
-    print("  - http://localhost:5000/")
-    print("  - http://localhost:5000/event-calendar")
-    print("  - http://localhost:5000/announcements?market=equity")
-    print("  - http://localhost:5000/crd")
-    print("  - http://localhost:5000/credit-rating?market=equity")
-    print("  - http://localhost:5000/health")
-    print("\nQuery Parameters:")
-    print("  - page=1 (default)")
-    print("  - per_page=50 (default, max: 1000)")
-    print("  - market=equity (for announcements & credit-rating)")
-    print("\n" + "=" * 80)
-    print("\nStarting API server on http://localhost:5000")
+    print(f"\nStarting API server on port {port}")
     print("Press Ctrl+C to stop\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)
 

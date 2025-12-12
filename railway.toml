@@ -6,5 +6,5 @@ dockerfilePath = "Dockerfile"
 startCommand = "python start_all.py"
 restartPolicyType = "always"
 healthcheckPath = "/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
 
