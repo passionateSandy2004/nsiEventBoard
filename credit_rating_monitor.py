@@ -290,7 +290,13 @@ class CreditRatingMonitor:
             return None
     
     def save_json(self, data, filename_prefix='credit_rating'):
-        """Save data to JSON file"""
+        """Save data to a timestamped JSON file.
+
+        NOTE: In production we typically avoid calling this to prevent
+        unbounded growth of historical files. The monitoring loop now only
+        keeps a single latest_*.json snapshot and optionally uses this for
+        ad‑hoc local runs.
+        """
         if not data:
             logger.warning("No data to save")
             return None
@@ -330,6 +336,25 @@ class CreditRatingMonitor:
             logger.error(f"Error saving latest.json: {e}")
             return None
     
+    def cleanup_old_files(self):
+        """Delete historical JSON files keeping only latest_*.json.
+
+        This prevents the monitor from filling up disk over time when running
+        continuously in production.
+        """
+        try:
+            for filename in os.listdir(self.output_dir):
+                if not filename.lower().endswith(".json"):
+                    continue
+                if filename.startswith(f"latest_{self.market_type.lower()}"):
+                    continue
+                full_path = os.path.join(self.output_dir, filename)
+                try:
+                    os.remove(full_path)
+                    logger.info(f"Deleted old file: {full_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete {full_path}: {e}")
+    
     def run_single_scrape(self, max_pages=None):
         """Run a single scrape operation"""
         logger.info("=" * 80)
@@ -340,8 +365,10 @@ class CreditRatingMonitor:
             data = self.scrape_all_pages(max_pages=max_pages)
             
             if data:
-                self.save_json(data)
+                # Save only the latest snapshot used by the API
                 self.save_latest(data)
+                # Cleanup any historical files left from previous runs
+                self.cleanup_old_files()
                 self.last_data = data
                 
                 logger.info("✅ Scrape completed successfully")

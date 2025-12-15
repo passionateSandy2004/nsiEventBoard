@@ -339,6 +339,11 @@ class AnnouncementsMonitor:
             logger.warning("No data to save")
             return None
         
+        """
+        NOTE: For production we avoid keeping historical timestamped files to
+        prevent unbounded disk growth. This method is kept for ad‑hoc local use,
+        but is no longer called from the monitoring loop.
+        """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{filename_prefix}_{self.market_type.lower()}_{timestamp}.json"
         filepath = os.path.join(self.output_dir, filename)
@@ -373,6 +378,26 @@ class AnnouncementsMonitor:
         except Exception as e:
             logger.error(f"Error saving latest.json: {e}")
             return None
+
+    def cleanup_old_files(self):
+        """Delete historical JSON files keeping only latest_*.json.
+
+        This prevents the monitor from filling up disk over time when running
+        continuously in production.
+        """
+        try:
+            for filename in os.listdir(self.output_dir):
+                if not filename.lower().endswith(".json"):
+                    continue
+                # Keep only latest_*.json files
+                if filename.startswith(f"latest_{self.market_type.lower()}"):
+                    continue
+                full_path = os.path.join(self.output_dir, filename)
+                try:
+                    os.remove(full_path)
+                    logger.info(f"Deleted old file: {full_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete {full_path}: {e}")
     
     def run_single_scrape(self, max_pages=None):
         """Run a single scrape operation"""
@@ -385,11 +410,10 @@ class AnnouncementsMonitor:
             data = self.scrape_all_pages(max_pages=max_pages)
             
             if data:
-                # Save with timestamp
-                self.save_json(data)
-                
-                # Save as latest
+                # Save only the latest snapshot used by the API
                 self.save_latest(data)
+                # Cleanup any historical files left from previous runs
+                self.cleanup_old_files()
                 
                 # Store for comparison
                 self.last_data = data
